@@ -4,20 +4,17 @@ import qrenderdoc as qrd
 from . import rdh_main
 
 extiface_version = ''
-cur_window: rdh_main.RDHWindow = None
 
 
 def retrieve_window(ctx, version):
-    global cur_window
-
-    if cur_window:
-        cur_window.ctx.RemoveCaptureViewer(cur_window)
-        del cur_window
-        cur_window = rdh_main.RDHWindow(ctx, version)
+    if rdh_main.the_window:
+        rdh_main.the_window.ctx.RemoveCaptureViewer(rdh_main.the_window)
+        del rdh_main.the_window
+        rdh_main.the_window = rdh_main.RDHCaptureViewer(ctx, version)
     else:
-        cur_window = rdh_main.RDHWindow(ctx, version)
+        rdh_main.the_window = rdh_main.RDHCaptureViewer(ctx, version)
 
-    return cur_window.main_widget
+    return rdh_main.the_window.main_widget
 
 
 def open_window_callback(ctx: qrd.CaptureContext, data):
@@ -37,12 +34,11 @@ def register(version: str, ctx: qrd.CaptureContext):
 
 
 def unregister():
-    global cur_window
-    cur_window.ctx.RemoveCaptureViewer(cur_window)
+    rdh_main.the_window.ctx.RemoveCaptureViewer(rdh_main.the_window)
     
-    if cur_window:
-        del cur_window
-        cur_window = None
+    if rdh_main.the_window:
+        del rdh_main.the_window
+        rdh_main.the_window = None
     print("RDHelper is removed!")
 
 
