@@ -1,0 +1,9 @@
+{
+	"extension_api": 1,
+	"name": "RDHelper",
+	"version": "1.0",
+	"minimum_renderdoc": "1.20",
+	"description": "RDHelper",
+	"author": "",
+	"url": ""
+}
