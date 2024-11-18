@@ -11,3 +11,5 @@ Features:
 
 ![image](https://github.com/user-attachments/assets/0875f2d4-bfd5-4c91-8583-299d9a010095)
 ![image](https://github.com/user-attachments/assets/3168de68-ed3c-4b0b-a194-c93ec37d0982)
+
+UE5 Nanites aren't supported.
