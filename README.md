@@ -15,4 +15,10 @@ Features:
 UE5 Nanite meshes aren't supported.
 
 Installation:
-- Copy the content of the repository as a folder to the RenderDoc extensions folder.
+- Open the Extension Manager. Tools->ManageExtensions.
+- Press the OpenLocation button in the Extension Manager. 
+- Copy the content of the repository as a folder to RenderDoc's extensions folder. On Windows it will be at C:\Users\MyUser\AppData\Roaming\qrenderdoc\extensions\RDHelper.
+- Open the RDHelper window with Window->RDHelperWindow.
+
+![image](https://github.com/user-attachments/assets/e41ab70e-81a0-4476-9373-cec2833e580f)
+
