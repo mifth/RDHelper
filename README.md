@@ -6,7 +6,7 @@ Features:
 - Get all or only unique meshes.
 - Sort meshes by an amount of triangles.
 - Sort textures by size.
-- Limit amount of Event IDs by setting StartEID and EndEID values.
+- Limit an amount of Event IDs by setting StartEID and EndEID values.
 - Export selected meshes to an OBJ file (no UVs and VertexColors).
 
 ![image](https://github.com/user-attachments/assets/0875f2d4-bfd5-4c91-8583-299d9a010095)
