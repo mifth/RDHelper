@@ -7,12 +7,10 @@ from PySide2 import QtCore, QtWidgets, QtGui
 
 class MainData():
     def __init__(self) -> None:
-        self.drawcalls_data: list = []
         self.meshes_data: list = []
         self.textures_data: list = []
 
     def CLearData(self):
-        self.drawcalls_data.clear()
         self.meshes_data.clear()
         self.textures_data.clear()
 
@@ -37,10 +35,12 @@ class RDHCaptureViewer(qrd.CaptureViewer):
 
     ### qrd.CaptureViewer Functions
     def OnCaptureLoaded(self):
-        pass
+        self.main_data.CLearData()
+        self.main_widget.ClearUI()
 
     def OnCaptureClosed(self):
-        pass
+        self.main_data.CLearData()
+        self.main_widget.ClearUI()
 
     def OnSelectedEventChanged(self, event):
         pass
@@ -87,8 +87,7 @@ class RDHCaptureViewer(qrd.CaptureViewer):
 
                         if tex_size >= 128:
                             self.main_data.textures_data.append((event_id, tex_width,
-                                                                tex_height, tex_size,
-                                                                int(res_id)))
+                                                                tex_height, tex_size, i))
                             break
 
             elif res.type == rd.ResourceType.Buffer:
@@ -108,8 +107,7 @@ class RDHCaptureViewer(qrd.CaptureViewer):
                                 # index_offset = action.indexOffset
                                 triangles_num = int(action.numIndices / 3)
 
-                                self.main_data.meshes_data.append((event_id, triangles_num,
-                                                                    int(res_id)))
+                                self.main_data.meshes_data.append((event_id, triangles_num, i))
 
         if self.main_data.textures_data:
             self.main_data.textures_data.sort(key=lambda value: value[3], reverse=True)
@@ -141,6 +139,16 @@ class MainWidget(QtWidgets.QWidget):
         self.update_btn.clicked.connect(lambda: self.UpdateData_Btn())
         self.left_main_layout.addWidget(self.update_btn)
 
+        # Set Start EID Button
+        self.set_startEID_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Set Start EID")
+        self.set_startEID_btn.clicked.connect(lambda: self.SetStartEID_Btn())
+        self.left_main_layout.addWidget(self.set_startEID_btn)
+
+        # Set End EID Button
+        self.set_endEID_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Set End EID")
+        self.set_endEID_btn.clicked.connect(lambda: self.SetEndEID_Btn())
+        self.left_main_layout.addWidget(self.set_endEID_btn)
+
         label_tmp = QtWidgets.QLabel('Start EID:')
         self.left_main_layout.addWidget(label_tmp)
         
@@ -160,20 +168,6 @@ class MainWidget(QtWidgets.QWidget):
         self.left_main_layout.addWidget(self.endEID)
 
         ########## RIGHT SIDE
-
-        ### Textures
-        self.drawcalls_layout: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout()
-        self.right_main_layout.addLayout(self.drawcalls_layout)
-
-        select_drawcall_eid_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Select Drawcall")
-        select_drawcall_eid_btn.clicked.connect(lambda: self.SelectDrawcallEID_Btn())
-        self.drawcalls_layout.addWidget(select_drawcall_eid_btn)
-
-        self.drawcalls_list: QtWidgets.QListWidget = QtWidgets.QListWidget()
-        self.drawcalls_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.drawcalls_list.setMinimumHeight(50)
-        self.drawcalls_list.setMaximumWidth(300)
-        self.drawcalls_layout.addWidget(self.drawcalls_list)
 
         ### Meshes
         self.meshes_layout: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout()
@@ -210,30 +204,52 @@ class MainWidget(QtWidgets.QWidget):
         return int(self.endEID.text())
 
     def SelectMeshEID_Btn(self):
-        pass
+        global the_window
+        if len(self.meshes_list.selectedIndexes()) > 0:
+            cur_index = self.meshes_list.currentIndex().row()
+            cur_data = the_window.main_data.meshes_data[cur_index]
+            the_window.ctx.SetEventID([], the_window.ctx.CurEvent(), cur_data[0], False)
+
+            the_window.ctx.ShowMeshPreview()
 
     def SelectTextureEID_Btn(self):
-        pass
+        global the_window
+        if len(self.textures_list.selectedIndexes()) > 0:
+            cur_index = self.textures_list.currentIndex().row()
+            cur_data = the_window.main_data.textures_data[cur_index]
+            event_id = cur_data[0]
+            the_window.ctx.SetEventID([], the_window.ctx.CurEvent(), event_id, False)
 
-    def SelectDrawcallEID_Btn(self):
-        pass
+            res: rd.ResourceDescription = the_window.ctx.GetResources()[cur_data[4]]
+            
+            the_window.ctx.GetTextureViewer().ViewTexture(res.resourceId, rd.CompType.UNormSRGB, True)
 
     def UpdateData_Btn(self):
         global the_window
         the_window.UpdateData()
 
+    def SetStartEID_Btn(self):
+        global the_window
+        self.startEID.setText(str(the_window.ctx.CurEvent()))
+
+    def SetEndEID_Btn(self):
+        global the_window
+        self.endEID.setText(str(the_window.ctx.CurEvent()))
+
+    def ClearUI(self):
+        self.meshes_list.clear()
+        self.textures_list.clear()
+
     def UpdateUI(self):
         global the_window
 
-        self.meshes_list.clear()
-        self.textures_list.clear()
-        self.drawcalls_list.clear()
+        self.ClearUI()
 
         unique_res_ids: set = set()
 
         # Set Meshes
         for mesh_data in the_window.main_data.meshes_data:
-            mesh_item = QtWidgets.QListWidgetItem()
+            mesh_item: QtWidgets.QListWidgetItem = QtWidgets.QListWidgetItem()
             mesh_item.setText(str(mesh_data[1]))
 
             res_id = mesh_data[2]
@@ -248,13 +264,13 @@ class MainWidget(QtWidgets.QWidget):
         
         # Set Textures
         for tex_data in the_window.main_data.textures_data:
-            tex_item = QtWidgets.QListWidgetItem()
+            tex_item: QtWidgets.QListWidgetItem = QtWidgets.QListWidgetItem()
             tex_item.setText(str(tex_data[3]))
 
             res_id = tex_data[4]
 
             if res_id not in unique_res_ids:
-                tex_item.setTextColor(QtGui.QColor(160, 50, 0))
+                tex_item.setTextColor(QtGui.QColor(160, 80, 0))
                 unique_res_ids.add(res_id)
 
             self.textures_list.addItem(tex_item)
