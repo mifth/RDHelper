@@ -88,7 +88,9 @@ class RDHCaptureViewer(qrd.CaptureViewer):
                         if tex_size >= 128:
                             self.main_data.textures_data.append((event_id, tex_width,
                                                                 tex_height, tex_size, i))
-                            break
+                            
+                            if self.main_widget.uniques_textures_checkbox.isChecked():
+                                break
 
             elif res.type == rd.ResourceType.Buffer:
                 buf = the_window.ctx.GetBuffer(res_id)
@@ -108,6 +110,9 @@ class RDHCaptureViewer(qrd.CaptureViewer):
                                 triangles_num = int(action.numIndices / 3)
 
                                 self.main_data.meshes_data.append((event_id, triangles_num, i))
+
+                                if self.main_widget.uniques_meshes_checkbox.isChecked():
+                                    break
 
         if self.main_data.textures_data:
             self.main_data.textures_data.sort(key=lambda value: value[3], reverse=True)
@@ -167,6 +172,13 @@ class MainWidget(QtWidgets.QWidget):
         self.endEID.setText("10000")
         self.left_main_layout.addWidget(self.endEID)
 
+        self.uniques_meshes_checkbox = QtWidgets.QCheckBox("Unique Meshes")
+        self.uniques_meshes_checkbox.setChecked(True)
+        self.left_main_layout.addWidget(self.uniques_meshes_checkbox)
+        self.uniques_textures_checkbox = QtWidgets.QCheckBox("Unique Textures")
+        self.uniques_textures_checkbox.setChecked(True)
+        self.left_main_layout.addWidget(self.uniques_textures_checkbox)
+
         ########## RIGHT SIDE
 
         ### Meshes
@@ -209,7 +221,6 @@ class MainWidget(QtWidgets.QWidget):
             cur_index = self.meshes_list.currentIndex().row()
             cur_data = the_window.main_data.meshes_data[cur_index]
             the_window.ctx.SetEventID([], the_window.ctx.CurEvent(), cur_data[0], False)
-
             the_window.ctx.ShowMeshPreview()
 
     def SelectTextureEID_Btn(self):
@@ -218,10 +229,8 @@ class MainWidget(QtWidgets.QWidget):
             cur_index = self.textures_list.currentIndex().row()
             cur_data = the_window.main_data.textures_data[cur_index]
             event_id = cur_data[0]
-            the_window.ctx.SetEventID([], the_window.ctx.CurEvent(), event_id, False)
-
             res: rd.ResourceDescription = the_window.ctx.GetResources()[cur_data[4]]
-            
+            the_window.ctx.SetEventID([], the_window.ctx.CurEvent(), event_id, False)
             the_window.ctx.GetTextureViewer().ViewTexture(res.resourceId, rd.CompType.UNormSRGB, True)
 
     def UpdateData_Btn(self):
@@ -265,7 +274,7 @@ class MainWidget(QtWidgets.QWidget):
         # Set Textures
         for tex_data in the_window.main_data.textures_data:
             tex_item: QtWidgets.QListWidgetItem = QtWidgets.QListWidgetItem()
-            tex_item.setText(str(tex_data[3]))
+            tex_item.setText(str(tex_data[1]) + " x " + str(tex_data[2]))
 
             res_id = tex_data[4]
 
