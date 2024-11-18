@@ -112,17 +112,17 @@ def UnpackData(fmt, buffer_data: bytes, offset):
 
     return value
 
-def ExportToOBJ(ctrl, meshData, obj_file, vertex_index, indices, buffer_data: bytes):
+def ExportToOBJ(r_ctrl: rd.ReplayController, mesh_data, obj_file, vertex_index, indices, buffer_data: bytes):
     tris = []
     tris_data = []
 
-    attr = meshData[0]
+    attr = mesh_data[0]
 
     # Variant
     # position = list(zip(position[3::4], position[1::4], position[::4]))
-    # data = ctrl.GetBufferData(attr.vertexResourceId, attr.vertexByteOffset, 0)
+    # data = r_ctrl.GetBufferData(attr.vertexResourceId, attr.vertexByteOffset, 0)
 
-    all_indices = meshData[0].numIndices
+    all_indices = mesh_data[0].numIndices
     
     # We'll decode the first three indices making up a triangle
     for i in range(all_indices):

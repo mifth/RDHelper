@@ -17,7 +17,6 @@ class MainData():
         self.meshes_data.clear()
         self.textures_data.clear()
 
-
 class RDHCaptureViewer(qrd.CaptureViewer):
     def __init__(self, ctx: qrd.CaptureContext, version: str):
         super().__init__()
@@ -104,8 +103,7 @@ class RDHCaptureViewer(qrd.CaptureViewer):
                         if use.usage == rd.ResourceUsage.IndexBuffer:
                             action: rd.ActionDescription = self.ctx.GetAction(event_id)
 
-                            if action.numIndices and action.numIndices >= 3:
-                                # index_offset = action.indexOffset
+                            if action.numIndices >= 3:
                                 triangles_num = int(action.numIndices / 3)
 
                                 self.main_data.meshes_data.append((event_id, triangles_num, i))
@@ -118,6 +116,65 @@ class RDHCaptureViewer(qrd.CaptureViewer):
 
         if self.main_data.meshes_data:
             self.main_data.meshes_data.sort(key=lambda value: value[1], reverse=True)
+
+    def ExportToObjWithReplay(self, r_ctrl: rd.ReplayController):
+        global export_obj_path
+
+        vertex_index = 0
+
+        with open(export_obj_path, 'w') as obj_file:
+            obj_file.write("# OBJ file \n")
+
+            for sel_index in self.main_widget.meshes_list.selectedIndexes():
+                mesh_data = self.main_data.meshes_data[sel_index.row()]
+                event_id = mesh_data[0]
+                triangles_num = mesh_data[1]
+
+                # Check
+                if triangles_num < 1:
+                    continue
+
+                # Move to that draw
+                r_ctrl.SetFrameEvent(event_id, True)
+
+                action: rd.ActionDescription = self.ctx.GetAction(event_id)
+                instances = action.numInstances
+
+                if action.numIndices > 0:
+                    indices = None
+                    obj_name = "o Tris" + str(int(triangles_num)) + "_EID" + str(event_id) + '\n'
+
+                    # Pase Instances reversed so that indices calculated faster
+                    for i in range(instances):
+                        # Fetch the postvs data
+                        postvs = r_ctrl.GetPostVSData(i, 0, rd.MeshDataStage.VSOut)
+
+                        obj_file.write(obj_name)
+
+                        # Calcualte the mesh configuration
+                        mesh_outputs = rdh_export.GetMeshOutputs(r_ctrl, postvs)
+
+                        try:
+                            if not indices:
+                                # postvs2 = ctrl.GetPostVSData(0, 0, rd.MeshDataStage.VSOut)
+                                indices = rdh_export.GetIndices(r_ctrl, mesh_outputs[0])
+
+                            # if not data:
+                            #     data = ctrl.GetBufferData(mesh_outputs[0].vertexResourceId, 0, 0)
+                            buffer_data = r_ctrl.GetBufferData(mesh_outputs[0].vertexResourceId,
+                                                        mesh_outputs[0].vertexByteOffset, 0)
+
+                            if indices:
+                                vertex_index_2 = rdh_export.ExportToOBJ(r_ctrl, mesh_outputs, obj_file,
+                                                                        vertex_index, indices, buffer_data)
+
+                                vertex_index += vertex_index_2
+
+                        except Exception as e:
+                            print(e)
+
+                        if buffer_data:
+                            del buffer_data
 
 the_window: RDHCaptureViewer = None
 
@@ -227,7 +284,7 @@ class MainWidget(QtWidgets.QWidget):
             if file_path[0]:
                 global export_obj_path
                 export_obj_path = file_path[0]
-                the_window.ctx.Replay().BlockInvoke(ExportToObjWithReplay)
+                the_window.ctx.Replay().BlockInvoke(the_window.ExportToObjWithReplay)
 
     def SelectMeshEID_Btn(self):
         global the_window
@@ -298,66 +355,3 @@ class MainWidget(QtWidgets.QWidget):
 
             self.textures_list.addItem(tex_item)
 
-def ExportToObjWithReplay(r_ctrl: rd.ReplayController):
-    global the_window
-    global export_obj_path
-
-    vertex_index = 0
-
-    with open(export_obj_path, 'w') as obj_file:
-        obj_file.write("# OBJ file \n")
-
-        for sel_index in the_window.main_widget.meshes_list.selectedIndexes():
-            mesh_data = the_window.main_data.meshes_data[sel_index.row()]
-            event_id = mesh_data[0]
-            triangles_num = mesh_data[1]
-
-            # Check
-            if triangles_num < 1:
-                continue
-
-            # Move to that draw
-            r_ctrl.SetFrameEvent(event_id, True)
-
-            action: rd.ActionDescription = the_window.ctx.GetAction(event_id)
-            instances = action.numInstances
-
-            if action.numIndices > 0:
-                indices = None
-
-                # # Has W
-                # vert_type = None
-
-                obj_name = "o Tris" + str(int(triangles_num)) + "_EID" + str(event_id) + '\n'
-
-                # Pase Instances reversed so that indices calculated faster
-                for i in range(instances):
-                    # Fetch the postvs data
-                    postvs = r_ctrl.GetPostVSData(i, 0, rd.MeshDataStage.VSOut)
-
-                    obj_file.write(obj_name)
-
-                    # Calcualte the mesh configuration
-                    mesh_outputs = rdh_export.GetMeshOutputs(r_ctrl, postvs)
-
-                    try:
-                        if not indices:
-                            # postvs2 = ctrl.GetPostVSData(0, 0, rd.MeshDataStage.VSOut)
-                            indices = rdh_export.GetIndices(r_ctrl, mesh_outputs[0])
-
-                        # if not data:
-                        #     data = ctrl.GetBufferData(mesh_outputs[0].vertexResourceId, 0, 0)
-                        buffer_data = r_ctrl.GetBufferData(mesh_outputs[0].vertexResourceId,
-                                                    mesh_outputs[0].vertexByteOffset, 0)
-
-                        if indices:
-                            vertex_index_2 = rdh_export.ExportToOBJ(r_ctrl, mesh_outputs, obj_file,
-                                                                    vertex_index, indices, buffer_data)
-
-                            vertex_index += vertex_index_2
-
-                    except Exception as e:
-                        print(e)
-
-                    if buffer_data:
-                        del buffer_data
