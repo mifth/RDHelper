@@ -1,9 +1,12 @@
 import renderdoc as rd
 import qrenderdoc as qrd
 
+from . import rdh_export
+
 import PySide2
 from PySide2 import QtCore, QtWidgets, QtGui
 
+export_obj_path: str = ""
 
 class MainData():
     def __init__(self) -> None:
@@ -52,11 +55,7 @@ class RDHCaptureViewer(qrd.CaptureViewer):
     def UpdateData(self):
         self.main_data.CLearData()
         self.ctx.Replay().BlockInvoke(self.UpdateDataWithReplay)
-        
         self.main_widget.UpdateUI()
-        
-        self.testPrint.setText(str(len(self.main_data.meshes_data)) + "  " + str(len(self.main_data.textures_data)))
-        self.testPrint.show()
 
     def UpdateDataWithReplay(self, r_ctrl: rd.ReplayController):
         startEID: int = self.main_widget.GetStartEID()
@@ -140,9 +139,9 @@ class MainWidget(QtWidgets.QWidget):
         ########## LEFT SIDE
 
         # Update Button
-        self.update_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Update")
-        self.update_btn.clicked.connect(lambda: self.UpdateData_Btn())
-        self.left_main_layout.addWidget(self.update_btn)
+        update_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Update")
+        update_btn.clicked.connect(lambda: self.UpdateData_Btn())
+        self.left_main_layout.addWidget(update_btn)
 
         # Set Start EID Button
         self.set_startEID_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Set Start EID")
@@ -169,7 +168,7 @@ class MainWidget(QtWidgets.QWidget):
         self.endEID: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
         self.endEID.setValidator(QtGui.QIntValidator())
         self.endEID.setObjectName("End EID")
-        self.endEID.setText("10000")
+        self.endEID.setText("1000000")
         self.left_main_layout.addWidget(self.endEID)
 
         self.uniques_meshes_checkbox = QtWidgets.QCheckBox("Unique Meshes")
@@ -185,6 +184,12 @@ class MainWidget(QtWidgets.QWidget):
         self.meshes_layout: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout()
         self.right_main_layout.addLayout(self.meshes_layout)
 
+        # Export Meshes to OBJ
+        export_meshes_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Export to OBJ")
+        export_meshes_btn.clicked.connect(lambda: self.ExportMeshes_Btn())
+        self.meshes_layout.addWidget(export_meshes_btn)
+
+        # Select Mesh
         select_mesh_eid_btn: QtWidgets.QPushButton = QtWidgets.QPushButton("Select Mesh")
         select_mesh_eid_btn.clicked.connect(lambda: self.SelectMeshEID_Btn())
         self.meshes_layout.addWidget(select_mesh_eid_btn)
@@ -214,6 +219,15 @@ class MainWidget(QtWidgets.QWidget):
 
     def GetEndEID(self):
         return int(self.endEID.text())
+
+    def ExportMeshes_Btn(self):
+        global the_window
+        if len(self.meshes_list.selectedIndexes()) > 0:
+            file_path = QtWidgets.QFileDialog.getSaveFileName(None, "Save To Obj", '', "Files (*.obj)")
+            if file_path[0]:
+                global export_obj_path
+                export_obj_path = file_path[0]
+                the_window.ctx.Replay().BlockInvoke(ExportToObjWithReplay)
 
     def SelectMeshEID_Btn(self):
         global the_window
@@ -283,3 +297,67 @@ class MainWidget(QtWidgets.QWidget):
                 unique_res_ids.add(res_id)
 
             self.textures_list.addItem(tex_item)
+
+def ExportToObjWithReplay(r_ctrl: rd.ReplayController):
+    global the_window
+    global export_obj_path
+
+    vertex_index = 0
+
+    with open(export_obj_path, 'w') as obj_file:
+        obj_file.write("# OBJ file \n")
+
+        for sel_index in the_window.main_widget.meshes_list.selectedIndexes():
+            mesh_data = the_window.main_data.meshes_data[sel_index.row()]
+            event_id = mesh_data[0]
+            triangles_num = mesh_data[1]
+
+            # Check
+            if triangles_num < 1:
+                continue
+
+            # Move to that draw
+            r_ctrl.SetFrameEvent(event_id, True)
+
+            action: rd.ActionDescription = the_window.ctx.GetAction(event_id)
+            instances = action.numInstances
+
+            if action.numIndices > 0:
+                indices = None
+
+                # # Has W
+                # vert_type = None
+
+                obj_name = "o Tris" + str(int(triangles_num)) + "_EID" + str(event_id) + '\n'
+
+                # Pase Instances reversed so that indices calculated faster
+                for i in range(instances):
+                    # Fetch the postvs data
+                    postvs = r_ctrl.GetPostVSData(i, 0, rd.MeshDataStage.VSOut)
+
+                    obj_file.write(obj_name)
+
+                    # Calcualte the mesh configuration
+                    mesh_outputs = rdh_export.GetMeshOutputs(r_ctrl, postvs)
+
+                    try:
+                        if not indices:
+                            # postvs2 = ctrl.GetPostVSData(0, 0, rd.MeshDataStage.VSOut)
+                            indices = rdh_export.GetIndices(r_ctrl, mesh_outputs[0])
+
+                        # if not data:
+                        #     data = ctrl.GetBufferData(mesh_outputs[0].vertexResourceId, 0, 0)
+                        buffer_data = r_ctrl.GetBufferData(mesh_outputs[0].vertexResourceId,
+                                                    mesh_outputs[0].vertexByteOffset, 0)
+
+                        if indices:
+                            vertex_index_2 = rdh_export.ExportToOBJ(r_ctrl, mesh_outputs, obj_file,
+                                                                    vertex_index, indices, buffer_data)
+
+                            vertex_index += vertex_index_2
+
+                    except Exception as e:
+                        print(e)
+
+                    if buffer_data:
+                        del buffer_data
