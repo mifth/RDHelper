@@ -1,4 +1,5 @@
-RDHelper is an extension for the RenderDoc application which helps to inspect meshes and textures.
+RDHelper is an extension for the RenderDoc(1.20+) application which helps to inspect meshes and textures.
+
 RenderDoc: https://github.com/baldurk/renderdoc
 
 Features:
